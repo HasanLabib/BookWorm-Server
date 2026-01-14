@@ -318,6 +318,11 @@ async function run() {
       });
     });
 
+    app.get("/genre", async (req, res) => {
+      const genres = await genreCollection.find().toArray();
+      res.json({ genres });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
