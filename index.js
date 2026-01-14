@@ -75,6 +75,46 @@ const photoStorage = new CloudinaryStorage({
   },
 });
 
+const bookStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    if (file.mimetype === "application/pdf") {
+      const cleanName = file.originalname.replace(".pdf", "");
+
+      return {
+        folder: "book_pdf",
+        resource_type: "raw",
+        format: "pdf",
+        type: "upload",
+        public_id: Date.now() + "-" + cleanName,
+      };
+    }
+
+    return {
+      folder: "book_photo",
+      type: "upload",
+      allowed_formats: [
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "webp",
+        "avif",
+        "svg",
+        "heic",
+      ],
+      transformation: [
+        { fetch_format: "auto" },
+        { quality: "auto" },
+        { crop: "fill", gravity: "auto" },
+      ],
+      public_id: Date.now() + "-" + file.originalname,
+    };
+  },
+});
+
+const uploadBook = multer({ storage: bookStorage });
+
 const uploadProfile = multer({ storage: photoStorage });
 
 async function run() {
@@ -85,6 +125,8 @@ async function run() {
     //await client.db("admin").command({ ping: 1 });
     const BookWormDb = client.db("BookWormDb");
     const userCollection = BookWormDb.collection("users");
+    const genreCollection = BookWormDb.collection("genres");
+    const bookCollection = BookWormDb.collection("books");
 
     app.post("/register", uploadProfile.single("photo"), async (req, res) => {
       const user = req.body;
@@ -323,7 +365,7 @@ async function run() {
       res.json({ genres });
     });
 
-     app.put("/update-genre/:id", verifyAccessToken, async (req, res) => {
+    app.put("/update-genre/:id", verifyAccessToken, async (req, res) => {
       const user = req.user;
       if (user.role != "admin")
         return res.status(403).json("User is not an admin");
@@ -361,6 +403,45 @@ async function run() {
       });
     });
 
+    app.post(
+      "/add-book",
+      verifyAccessToken,
+      uploadBook.fields([
+        { name: "cover", maxCount: 1 },
+        { name: "pdf", maxCount: 1 },
+      ]),
+      async (req, res) => {
+        const user = req.user;
+        if (user.role !== "admin")
+          return res.status(403).json("User is not an admin");
+
+        const { title, author, genre, description } = req.body;
+
+        const cover = req.files.cover[0].path;
+        const pdf = req.files.pdf[0].path;
+
+        const bookData = {
+          title,
+          author,
+          genre,
+          description,
+          cover,
+          pdf,
+          rating: 0,
+          ratingCount: 0,
+          shelvedCount: 0,
+          createdAt: new Date(),
+        };
+
+        const result = await bookCollection.insertOne(bookData);
+
+        res.status(201).json({
+          message: "Book added successfully",
+          insertedId: result.insertedId,
+          book: bookData,
+        });
+      }
+    );
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
