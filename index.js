@@ -238,6 +238,63 @@ async function run() {
       }
     });
 
+    app.post("/login", async (req, res) => {
+      const { email, password } = req.body;
+
+      if (!email || !password)
+        return res.status(400).json({ message: "Email and password required" });
+
+      const user = await userCollection.findOne({ email });
+      if (!user)
+        return res.status(401).json({ message: "Invalid credentials" });
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid)
+        return res.status(401).json({ message: "Invalid credentials" });
+
+      await issueTokens(user, res);
+
+      res.json({
+        message: "Login successful",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          photo: user.photo,
+          role: user.role,
+        },
+      });
+    });
+    app.post("/logout", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+
+      await userCollection.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            accessSecret: generateSecret(),
+            refreshSecret: generateSecret(),
+          },
+        }
+      );
+
+      res.clearCookie("accessToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.json({ message: "Logged out successfully" });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
