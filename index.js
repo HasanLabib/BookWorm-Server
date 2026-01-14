@@ -448,6 +448,85 @@ async function run() {
       res.json({ books });
     });
 
+    app.put(
+      "/update-book/:id",
+      verifyAccessToken,
+      uploadBook.fields([
+        { name: "cover", maxCount: 1 },
+        { name: "pdf", maxCount: 1 },
+      ]),
+      async (req, res) => {
+        const user = req.user;
+        const { cover, pdf } = req.files;
+        if (user.role !== "admin")
+          return res.status(403).json("User is not an admin");
+
+        const id = req.params.id;
+        const { title, author, genre, description } = req.body;
+
+        const updatedData = {
+          title,
+          author,
+          genre,
+          description,
+          updatedAt: new Date(),
+        };
+
+        if (cover) updatedData.cover = cover[0].path;
+        if (pdf) updatedData.pdf = pdf[0].path;
+        const query = { _id: new ObjectId(id) };
+
+        const result = await bookCollection.updateOne(query, {
+          $set: updatedData,
+        });
+
+        res.json({
+          message: "Book updated successfully",
+          modifiedCount: result.modifiedCount,
+        });
+      }
+    );
+
+    app.delete("/delete-book/:id", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role !== "admin")
+        return res.status(403).json("User is not an admin");
+
+      const id = req.params.id;
+
+      const result = await bookCollection.deleteOne({ _id: new ObjectId(id) });
+
+      res.json({
+        message: "Book deleted successfully",
+        deletedCount: result.deletedCount,
+      });
+    });
+
+    app.get("/users", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role !== "admin")
+        return res.status(403).json("User is not an admin");
+
+      const users = await userCollection.find().toArray();
+      res.json({ users });
+    });
+
+    app.put("/updateRole/:id", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role !== "admin")
+        return res.status(403).json("User is not an admin");
+
+      const id = req.params.id;
+      const { role } = req.body;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.updateOne(query, { $set: { role } });
+
+      res.json({
+        message: "Role updated successfully",
+        modifiedCount: result.modifiedCount,
+      });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
