@@ -323,6 +323,45 @@ async function run() {
       res.json({ genres });
     });
 
+     app.put("/update-genre/:id", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role != "admin")
+        return res.status(403).json("User is not an admin");
+      console.log(req.body);
+      const id = req.params.id;
+      const { genre, icon } = req.body;
+
+      query = { _id: new ObjectId(id) };
+
+      const genreData = { genre, icon, createdAt: new Date() };
+
+      const result = await genreCollection.updateOne(query, {
+        $set: genreData,
+      });
+      res.status(201).json({
+        message: "Genre edited successfully",
+        upsertedId: result.upsertedId,
+        modifiedCount: result.modifiedCount,
+        genre: genreData,
+      });
+    });
+
+    app.delete("/deleteGenre/:id", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role != "admin")
+        return res.status(403).json("User is not an admin");
+      const id = req.params.id;
+      query = { _id: new ObjectId(id) };
+
+      const result = await genreCollection.deleteOne(query);
+      res.status(201).json({
+        message: "Genre edited successfully",
+        acknowledged: true,
+        deletedCount: result.deletedCount,
+      });
+    });
+
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
