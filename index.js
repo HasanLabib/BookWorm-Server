@@ -295,6 +295,29 @@ async function run() {
       res.json({ message: "Logged out successfully" });
     });
 
+    app.post("/add-genre", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      if (user.role != "admin")
+        return res.status(403).json("User is not an admin");
+      console.log(req.body);
+      const { genre, icon } = req.body;
+
+      query = { genre: genre };
+
+      const existingGenre = await genreCollection.findOne(query);
+      if (existingGenre)
+        return res.status(409).json({ message: "Genre already exists" });
+
+      const genreData = { genre, icon, createdAt: new Date() };
+
+      const result = await genreCollection.insertOne(genreData);
+      res.status(201).json({
+        message: "Genre added successfully",
+        insertedId: result.insertedId,
+        genre: genreData,
+      });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
