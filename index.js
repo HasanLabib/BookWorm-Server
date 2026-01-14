@@ -443,6 +443,11 @@ async function run() {
       }
     );
 
+    app.get("/books", async (req, res) => {
+      const books = await bookCollection.find().toArray();
+      res.json({ books });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
