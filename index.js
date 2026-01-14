@@ -200,6 +200,44 @@ async function run() {
       });
     });
 
+    const issueTokens = async (user, res) => {
+      user.accessSecret = generateSecret();
+      user.refreshSecret = generateSecret();
+      const query = { _id: user?._id };
+      await userCollection.updateOne(query, {
+        $set: {
+          accessSecret: user?.accessSecret,
+          refreshSecret: user?.refreshSecret,
+        },
+      });
+
+      const new_accessToken = createAccessToken(user);
+      const new_refreshToken = createRefreshToken(user);
+
+      res.cookie("accessToken", new_accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.cookie("refreshToken", new_refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+    };
+
+    app.post("/refreshToken", verifyRefreshToken, async (req, res) => {
+      const user = req.user;
+      try {
+        await issueTokens(user, res);
+        res.json({ message: "Session refreshed" });
+      } catch (err) {
+        res.status(401).json({ message: "Invalid refresh token" });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
