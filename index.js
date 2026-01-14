@@ -85,7 +85,7 @@ async function run() {
     //await client.db("admin").command({ ping: 1 });
     const BookWormDb = client.db("BookWormDb");
     const userCollection = BookWormDb.collection("users");
-    
+
     app.post("/register", uploadProfile.single("photo"), async (req, res) => {
       const user = req.body;
       if (!user?.name)
@@ -142,6 +142,50 @@ async function run() {
         });
       }
     });
+
+    const verifyAccessToken = async (req, res, next) => {
+      const token = req.cookies.accessToken;
+
+      if (!token) return res.status(401).json({ message: "Not Logged In" });
+
+      try {
+        const decodedToken = jwt.decode(token);
+        if (!decodedToken.id)
+          return res.status(401).json({ message: "Invalid token" });
+
+        const query = { _id: new ObjectId(decodedToken?.id) };
+        const user = await userCollection.findOne(query);
+        if (!user) return res.status(401).json({ message: "User not found" });
+
+        jwt.verify(token, user.accessSecret);
+        req.user = user;
+        next();
+      } catch (err) {
+        return res.status(401).json({ message: "Session expired" });
+      }
+    };
+
+    const verifyRefreshToken = async (req, res, next) => {
+      const token = req.cookies.refreshToken;
+
+      if (!token) return res.status(401).json({ message: "No refresh token" });
+
+      try {
+        const decodedToken = jwt.decode(token);
+        if (!decodedToken.id)
+          return res.status(401).json({ message: "Invalid token" });
+
+        const query = { _id: new ObjectId(decodedToken?.id) };
+        const user = await userCollection.findOne(query);
+        if (!user) return res.status(401).json({ message: "User not found" });
+
+        jwt.verify(token, user.refreshSecret);
+        req.user = user;
+        next();
+      } catch (err) {
+        return res.status(401).json({ message: "Session expired" });
+      }
+    };
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
