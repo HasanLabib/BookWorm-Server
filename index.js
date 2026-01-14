@@ -187,6 +187,19 @@ async function run() {
       }
     };
 
+    app.get("/logged_in", verifyAccessToken, async (req, res) => {
+      const user = req.user;
+      return res.json({
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          photo: user.photo,
+          role: user.role,
+        },
+      });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
